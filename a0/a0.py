@@ -36,21 +36,29 @@ import networkx as nx
 import sys
 import time
 from TwitterAPI import TwitterAPI
+import configparser
 
+"""
 consumer_key = 'fixme'
 consumer_secret = 'fixme'
 access_token = 'fixme'
 access_token_secret = 'fixme'
-
+"""
 
 # This method is done for you. Make sure to put your credentials in the file twitter.cfg.
-def get_twitter():
+def get_twitter(config_file):
     """ Construct an instance of TwitterAPI using the tokens you entered above.
     Returns:
       An instance of TwitterAPI.
     """
-    return TwitterAPI(consumer_key, consumer_secret, access_token, access_token_secret)
-
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    twitter = TwitterAPI(
+                   config.get('twitter', 'consumer_key'),
+                   config.get('twitter', 'consumer_secret'),
+                   config.get('twitter', 'access_token'),
+                   config.get('twitter', 'access_token_secret'))
+    return twitter
 
 def read_screen_names(filename):
     """
@@ -67,6 +75,9 @@ def read_screen_names(filename):
     ['DrJillStein', 'GovGaryJohnson', 'HillaryClinton', 'realDonaldTrump']
     """
     ###TODO
+    with open(filename) as f:
+        candidate_list = f.read().splitlines()
+    return candidate_list
     pass
 
 
@@ -107,12 +118,14 @@ def get_users(twitter, screen_names):
 
     In this example, I test retrieving two users: twitterapi and twitter.
 
-    >>> twitter = get_twitter()
+    >>> twitter = get_twitter('twitter.cfg')
     >>> users = get_users(twitter, ['twitterapi', 'twitter'])
     >>> [u['id'] for u in users]
     [6253282, 783214]
     """
     ###TODO
+    request_users = robust_request(twitter,'users/lookup',{'screen_name': screen_names})
+    return request_users
     pass
 
 
@@ -133,18 +146,24 @@ def get_friends(twitter, screen_name):
     the first 5000 accounts returned.
 
     In this test case, I return the first 5 accounts that I follow.
-    >>> twitter = get_twitter()
+    >>> twitter = get_twitter('twitter.cfg')
     >>> get_friends(twitter, 'aronwc')[:5]
     [695023, 1697081, 8381682, 10204352, 11669522]
     """
     ###TODO
+    request_friends = robust_request(twitter,'friends/ids',{'screen_name': screen_name})
+    f_list=[]
+    for i in request_friends:
+        f_list.append(i)
+        f_list = sorted(f_list)
+    return f_list
     pass
 
 
 def add_all_friends(twitter, users):
     """ Get the list of accounts each user follows.
     I.e., call the get_friends method for all 4 candidates.
-
+    
     Store the result in each user's dict using a new key called 'friends'.
 
     Args:
@@ -152,19 +171,28 @@ def add_all_friends(twitter, users):
         users.....The list of user dicts.
     Returns:
         Nothing
-
-    >>> twitter = get_twitter()
+    
+    >>> twitter = get_twitter('twitter.cfg')
     >>> users = [{'screen_name': 'aronwc'}]
     >>> add_all_friends(twitter, users)
     >>> users[0]['friends'][:5]
     [695023, 1697081, 8381682, 10204352, 11669522]
     """
     ###TODO
+    f_list=[]
+    #f_list.append(get_friends(twitter,n['screen_name']) for n in users)
+    for i in users:
+        f_list.append(get_friends(twitter,i['screen_name']))
+    
+    for i in range(len(f_list)):
+        i_list = f_list[i]
+        users[i]['friends'] = i_list
     pass
 
 
 def print_num_friends(users):
-    """Print the number of friends per candidate, sorted by candidate name.
+    """
+    Print the number of friends per candidate, sorted by candidate name.
     See Log.txt for an example.
     Args:
         users....The list of user dicts.
@@ -172,6 +200,10 @@ def print_num_friends(users):
         Nothing
     """
     ###TODO
+    users_num = users.keys()
+    users_num.sort()
+    for i in users_num:
+          print(i, len(users[i]))
     pass
 
 
@@ -189,6 +221,11 @@ def count_friends(users):
     [(2, 3), (3, 2), (1, 1)]
     """
     ###TODO
+    count=Counter()
+    for i in users:
+        for j in users[i]:
+            count[j]+=1
+    return count
     pass
 
 
@@ -270,7 +307,7 @@ def draw_network(graph, users, filename):
 
 def main():
     """ Main method. You should not modify this. """
-    twitter = get_twitter()
+    twitter = get_twitter('twitter.cfg')
     screen_names = read_screen_names('candidates.txt')
     print('Established Twitter connection.')
     print('Read screen names: %s' % screen_names)

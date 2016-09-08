@@ -9,12 +9,9 @@ Trump.
 
 How is this approach misleading? How might you fix it?
 
+Answer: This approach is misleading to quantify similarity between two users since the friend_overlap function gives the common friends which follow those 2 users. However, twitter allows anyone to follow a particular person.
 
-
-
-
-
-
+In order to fix it, we need to look at the common people followed by 2 users so that we can quantify similarity between them.
 
 
 
@@ -23,15 +20,7 @@ do you think this user is followed by both Hilary Clinton and Donald Trump,
 who are rivals? Do some web searches to see if you can find out more
 information.
 
-
-
-
-
-
-
-
-
-
+Hillary CLinton is following Magic Johnson since he supported her campaign. And also he is open to do business with Donald Trump, so he might also be interested.
 
 
 
@@ -40,9 +29,7 @@ Johnson follows over 3K accounts, while Donald Trump follows less than
 50). Why do you think this is? How might that affect our analysis?
 
 
-
-
-
+There would not be fair comparison while doing analysis.
 
 
 
@@ -55,3 +42,8 @@ https://dev.twitter.com/rest/reference/get/friends/ids, how many requests will
 we have to make? Given how Twitter does rate limiting
 (https://dev.twitter.com/rest/public/rate-limiting), approximately how many
 minutes will it take to collect this data?
+
+Answer: Total friends = 8073
+        Total 15 requests in 15 mins, thus
+
+        Total time = 8073/15 = 538.2 mins

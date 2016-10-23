@@ -35,6 +35,7 @@ from sklearn.linear_model import LogisticRegression
 import string
 import tarfile
 import urllib.request
+from time import time
 
 
 def download_data():
@@ -87,15 +88,22 @@ def tokenize(doc, keep_internal_punct=False):
       a numpy array containing the resulting tokens.
 
     >>> tokenize(" Hi there! Isn't this fun?", keep_internal_punct=False)
-    array(['hi', 'there', 'isn', 't', 'this', 'fun'], 
+    array(['hi', 'there', 'isn', 't', 'this', 'fun'],
           dtype='<U5')
     >>> tokenize("Hi there! Isn't this fun? ", keep_internal_punct=True)
-    array(['hi', 'there', "isn't", 'this', 'fun'], 
+    array(['hi', 'there', "isn't", 'this', 'fun'],
           dtype='<U5')
     """
     ###TODO
-    pass
-
+    if keep_internal_punct:
+        #arr = re.compile("[^\w'|-]").sub(" ",doc).lower()
+        arr = doc.lower().split()
+        for i in range(len(arr)):
+            arr[i] = re.sub('^\W+', '', re.sub('\W+$', '', arr[i].strip()).strip())
+        return np.array(arr)
+    else:
+        arr = re.sub('[^A-Za-z0-9_]+', ' ', doc.lower().strip())
+        return np.array(arr.split())
 
 def token_features(tokens, feats):
     """
@@ -116,7 +124,10 @@ def token_features(tokens, feats):
     [('token=hi', 2), ('token=there', 1)]
     """
     ###TODO
-    pass
+
+    for word in tokens:
+        key="".join(("token=",word))
+        feats[key] +=1
 
 
 def token_pair_features(tokens, feats, k=3):
@@ -146,7 +157,19 @@ def token_pair_features(tokens, feats, k=3):
     [('token_pair=a__b', 1), ('token_pair=a__c', 1), ('token_pair=b__c', 2), ('token_pair=b__d', 1), ('token_pair=c__d', 1)]
     """
     ###TODO
-    pass
+    windows,pairs, temp = [], [], []
+    for j in range(len(tokens) - (k - 1)):
+        temp = tokens[j:j + k]
+        windows.append(temp)
+
+    for i in windows:
+        for j in combinations(i, 2):
+            key = list(j)
+            pairs.append(key)
+
+    for i in pairs:
+        key = i[0] + '__' + i[1]
+        feats["".join(("token_pair=",key))] +=1
 
 
 neg_words = set(['bad', 'hate', 'horrible', 'worst', 'boring'])
@@ -172,7 +195,14 @@ def lexicon_features(tokens, feats):
     [('neg_words', 1), ('pos_words', 2)]
     """
     ###TODO
-    pass
+    #print(neg_words, pos_words)
+    feats['neg_words'] = 0
+    feats['pos_words'] = 0
+    for token in tokens:
+        if token.lower() in neg_words:
+            feats['neg_words'] +=1
+        elif token.lower() in pos_words:
+            feats['pos_words'] +=1
 
 
 def featurize(tokens, feature_fns):
@@ -192,7 +222,11 @@ def featurize(tokens, feature_fns):
     [('neg_words', 0), ('pos_words', 2), ('token=LOVE', 1), ('token=great', 1), ('token=i', 1), ('token=movie', 1), ('token=this', 1)]
     """
     ###TODO
-    pass
+    feats=defaultdict(lambda :0)
+    for feature in feature_fns:
+        feature(tokens, feats)
+
+    return sorted(feats.items())
 
 
 def vectorize(tokens_list, feature_fns, min_freq, vocab=None):
@@ -228,7 +262,52 @@ def vectorize(tokens_list, feature_fns, min_freq, vocab=None):
     [('token=great', 0), ('token=horrible', 1), ('token=isn', 2), ('token=movie', 3), ('token=t', 4), ('token=this', 5)]
     """
     ###TODO
-    pass
+    features=[]
+    #start=time()
+    doc_counter,features_dict=0,{}
+    for doc in tokens_list:
+        feature=featurize(doc,feature_fns)
+        features_dict[doc_counter]=feature
+        features+=feature
+        doc_counter+=1
+    #print(features_dict.items())
+
+    min_freq_dict=Counter()
+
+    #print("Total features function time:",(time()-start))
+
+    for feature in features:
+        feature_value, count = feature
+        min_freq_dict[feature_value] +=1
+
+    count=0
+    #start2=time()
+    if vocab==None:
+        final_features = []
+        for key, value in min_freq_dict.items():
+            if value >= min_freq:
+                final_features.append(key)
+
+        final_features.sort()
+        vocab = {}
+        for key in final_features:
+            vocab[key] = count
+            count+=1
+
+
+    #print("vocab function time:", (time() - start2))
+    #start3=time()
+    row,col,data,freq=[],[],[],{}
+    for row_num in range(len(tokens_list)):
+        for feature_value,count in features_dict[row_num]:
+            if feature_value in vocab.keys():
+                [row.append(row_num)]
+                [col.append(vocab[feature_value])]
+                [data.append(count)]
+
+    X=csr_matrix((data, (row,col)))
+    #print("Total main appending time:", (time() - start3))
+    return X, vocab
 
 
 def accuracy_score(truth, predicted):
@@ -258,7 +337,16 @@ def cross_validation_accuracy(clf, X, labels, k):
       over each fold of cross-validation.
     """
     ###TODO
-    pass
+    kf = KFold(len(labels), k)
+    counter = 0
+    accuracies = []
+    for train, test in kf:
+        clf.fit(X[train], labels[train])
+        predicted = clf.predict(X[test])
+        acc = accuracy_score(labels[test], predicted)
+        accuracies.append(acc)
+        counter += 1
+    return np.mean(accuracies)
 
 
 def eval_all_combinations(docs, labels, punct_vals,
@@ -300,8 +388,39 @@ def eval_all_combinations(docs, labels, punct_vals,
       This function will take a bit longer to run (~20s for me).
     """
     ###TODO
-    pass
+    feature_funcslist=[]
+    #dict_punct, dict_features, dict_min_freq, dict_accuracy={},{},{},{}
 
+    for n in range(1, len(feature_fns)+1):
+        for sub_feature_list in list(combinations(list(feature_fns),n)):
+            feature_funcslist.append(sub_feature_list)
+    #print(feature_funcslist)
+    final_list=[]
+    token_list1=[]
+    token_list2 = []
+    for doc in docs:
+        token_list1.append(tokenize(doc,keep_internal_punct=True))
+    for doc in docs:
+        token_list2.append(tokenize(doc,keep_internal_punct=False))
+
+    clf=LogisticRegression()
+    for value in punct_vals:
+        for freq in min_freqs:
+            for feature in feature_funcslist:
+                final_dict = {}
+                #start=time()
+                if value==True:
+                    X, vocab = vectorize(token_list1,feature,freq)
+                    #print("Vectorize time: ", (time() - start))
+                else:
+                    X, vocab = vectorize(token_list2, feature, freq)
+                    #print("Vectorize time: ", (time() - start))
+                acc=cross_validation_accuracy(clf,X,labels,5)
+                final_dict['punct'], final_dict['features'], final_dict['min_freq'], final_dict['accuracy'] = value, feature, freq, acc
+                final_list.append(final_dict)
+                #print(final_dict.items())
+    result=sorted(final_list,key=lambda x:x['accuracy'], reverse=True)
+    return result
 
 def plot_sorted_accuracies(results):
     """
@@ -310,7 +429,14 @@ def plot_sorted_accuracies(results):
     Save to "accuracies.png".
     """
     ###TODO
-    pass
+    acc_list=[]
+    for value in results:
+        acc_list.append(value['accuracy'])
+
+    plt.plot(sorted(acc_list))
+    plt.xlabel('settings')
+    plt.ylabel('accuracy')
+    plt.savefig('accuracies.png')
 
 
 def mean_accuracy_per_setting(results):
@@ -327,7 +453,31 @@ def mean_accuracy_per_setting(results):
       descending order of accuracy.
     """
     ###TODO
-    pass
+    dict_setting1 = defaultdict(lambda :0)
+    dict_setting2 = defaultdict(lambda :0)
+    dict_setting3 = defaultdict(lambda :0)
+    list_settings = []
+
+    for value in results:
+
+        dict_setting1.setdefault(value['punct'],[]).append(value['accuracy'])
+        dict_setting2.setdefault(value['min_freq'],[]).append(value['accuracy'])
+        dict_setting3.setdefault(value['features'],[]).append(value['accuracy'])
+
+    for setting, accuracy in dict_setting1.items():
+        list_settings.append((sum(accuracy)/len(accuracy), 'punct='+str(setting)))
+
+    for setting, accuracy in dict_setting2.items():
+        list_settings.append((sum(accuracy)/len(accuracy), 'min_freq='+str(setting)))
+
+    for setting, accuracy in dict_setting3.items():
+        feature_string = ''
+        for i in setting:
+            feature_string = feature_string + i.__name__ + ' '
+        list_settings.append((sum(accuracy) / len(accuracy), 'features=' + str(feature_string.strip())))
+
+
+    return sorted(list_settings, key=lambda x: x[0], reverse=True)
 
 
 def fit_best_classifier(docs, labels, best_result):
@@ -348,7 +498,15 @@ def fit_best_classifier(docs, labels, best_result):
       vocab...The dict from feature name to column index.
     """
     ###TODO
-    pass
+    tokens_list=[]
+    for doc in docs:
+        tokens_list.append(tokenize(doc,best_result['punct']))
+
+    X, vocab = vectorize(tokens_list,best_result['features'],best_result['min_freq'])
+    clf=LogisticRegression()
+    clf.fit(X,labels)
+
+    return clf, vocab
 
 
 def top_coefs(clf, label, n, vocab):
@@ -369,7 +527,25 @@ def top_coefs(clf, label, n, vocab):
       given class label.
     """
     ###TODO
-    pass
+
+    coef=clf.coef_[0:]
+    feature_coef=[]
+    vocab_dict_reverse={}
+
+    for key,value in vocab.items():
+        vocab_dict_reverse[value]=key
+
+    indices_coef = [i for i in sorted(enumerate(coef[0]), key=lambda x:x[1])]
+
+    if label==1:
+        for index, coefficient in indices_coef[::-1][:n]:
+            feature_coef.append((vocab_dict_reverse[index],float(coefficient)))
+
+    elif label==0:
+        for index,coefficient in indices_coef[:n]:
+            feature_coef.append((vocab_dict_reverse[index], float(-1*coefficient)))
+
+    return feature_coef
 
 
 def parse_test_data(best_result, vocab):
@@ -397,7 +573,15 @@ def parse_test_data(best_result, vocab):
                     each column is a feature.
     """
     ###TODO
-    pass
+    test_docs, test_labels = read_data(os.path.join('data', 'test'))
+    tokens_list = []
+
+    for doc in test_docs:
+        tokens_list.append(tokenize(doc, best_result['punct']))
+
+    X_test, vocab = vectorize(tokens_list, best_result['features'], best_result['min_freq'], vocab)
+
+    return test_docs, test_labels, X_test
 
 
 def print_top_misclassified(test_docs, test_labels, X_test, clf, n):
@@ -424,7 +608,22 @@ def print_top_misclassified(test_docs, test_labels, X_test, clf, n):
       Nothing; see Log.txt for example printed output.
     """
     ###TODO
-    pass
+    predicted=clf.predict(X_test)
+    pred_prob=clf.predict_proba(X_test)
+    incorrect_doc_list=[]
+
+    for i in range(len(test_labels)):
+        if test_labels[i] != predicted[i]:
+            if predicted[i]==1:
+                incorrect_doc_list.append((test_labels[i], predicted[i], pred_prob[i][1], test_docs[i]))
+            else:
+                incorrect_doc_list.append((test_labels[i], predicted[i], pred_prob[i][0], test_docs[i]))
+
+    incorrect_doc_list.sort(key= lambda x:x[2], reverse=True)
+
+    for i in range(n):
+        print('\ntruth=' + str(incorrect_doc_list[i][0]) + ' predicted=' + str(incorrect_doc_list[i][1]) + ' proba=' + str(incorrect_doc_list[i][2]))
+        print(str(incorrect_doc_list[i][3]))
 
 
 def main():

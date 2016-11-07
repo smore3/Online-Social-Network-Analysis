@@ -52,7 +52,8 @@ def tokenize(movies):
     [['horror', 'romance'], ['sci-fi']]
     """
     ###TODO
-    pass
+    movies['tokens']=movies['genres'].apply(lambda x:tokenize_string(x))
+    return movies
 
 
 def featurize(movies):
@@ -78,7 +79,44 @@ def featurize(movies):
       - The vocab, a dict from term to int. Make sure the vocab is sorted alphabetically as in a2 (e.g., {'aardvark': 0, 'boy': 1, ...})
     """
     ###TODO
-    pass
+    movies['features']=""
+    """""Finding unique features from all the tokens"""
+    features_list=sorted(set(term for terms in movies.tokens for term in terms))
+
+    """"Calcualting vocab using the features_list"""
+    index = 0
+    vocab = defaultdict(lambda: 0)
+    for term in features_list:
+        vocab[term]=index
+        index+=1
+
+    """"Calcualting IDF for every term in the features_list"""
+    IDF = defaultdict(lambda: 0)
+    for feature in features_list:
+        count=0
+        for doc in movies.tokens:
+            if feature in doc:
+                count+=1
+        IDF[feature]=math.log(movies.shape[0]/count)
+
+    """"Calcualting the csr matrix for every row"""
+    for index,row in movies.iterrows():
+        csr_row,csr_col,csr_data,term_freq_doc=[],[],[],Counter()
+        max_freq=0
+        tfidf=defaultdict(lambda :0)
+        term_freq_doc=Counter(row.tokens)
+        max_freq=max(term_freq_doc.values())
+
+        for term in row.tokens:
+            tfidf[term]=(term_freq_doc[term]/max_freq)*(IDF[term])
+            if term in features_list:
+                [csr_row.append(0)]
+                [csr_col.append(vocab[term])]
+                [csr_data.append(tfidf[term])]
+
+        movies.set_value(index,'features',csr_matrix((csr_data, (csr_row,csr_col)), shape=(1,len(vocab)))) #setting the calculated csr matrix in new colum of every row
+
+    return movies, vocab
 
 
 def train_test_split(ratings):
@@ -103,7 +141,14 @@ def cosine_sim(a, b):
       where ||a|| indicates the Euclidean norm (aka L2 norm) of vector a.
     """
     ###TODO
-    pass
+    a=a.todense()
+    b=b.todense()
+    a=np.array(a)
+    b=np.array(b)
+    
+    cosine = float(np.dot(a, b.T) / np.linalg.norm(a) / np.linalg.norm(b))
+    #print(cosine)
+    return round(cosine,5)
 
 
 def make_predictions(movies, ratings_train, ratings_test):
@@ -129,7 +174,32 @@ def make_predictions(movies, ratings_train, ratings_test):
       A numpy array containing one predicted rating for each element of ratings_test.
     """
     ###TODO
-    pass
+    predicted_rating=[]
+    movies = movies.set_index(['movieId'])
+    for index,row in ratings_test.iterrows():
+        movie_to_predict=row.movieId
+        movies_per_userId = ratings_train[ratings_train.userId == row.userId] #all movies per user in ratings_test
+        #print(movies_per_userId)
+        cos_sim,sum,ratings=0.0,0.0,0.0
+        for index2,row2 in movies_per_userId.iterrows():
+            user_movie_id=row2.movieId					     
+            feature_col_index=3
+            compare_movie_csr=movies.loc[movie_to_predict][feature_col_index]  #csr matrix for the movie to be predicted
+
+            temp=cosine_sim(compare_movie_csr, movies.loc[user_movie_id][feature_col_index]) #cosine similarity between movie to be predicted and other movies that particular user rated
+            if temp>=0:
+                cos_sim+=(temp*row2.rating)
+                sum+=temp
+            ratings+=row2.rating
+
+        if sum==0:						#if cosine similarity if zero for all movies then average the ratings
+            weighted_avg=ratings/movies_per_userId.shape[0]
+        else:
+            weighted_avg=cos_sim/sum
+        #print(weighted_avg)
+        predicted_rating.append(round(weighted_avg,1))
+
+    return np.array(predicted_rating)
 
 
 def mean_absolute_error(predictions, ratings_test):

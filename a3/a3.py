@@ -116,7 +116,7 @@ def featurize(movies):
 
         movies.set_value(index,'features',csr_matrix((csr_data, (csr_row,csr_col)), shape=(1,len(vocab)))) #setting the calculated csr matrix in new colum of every row
 
-    return movies, vocab
+    return (movies, vocab)
 
 
 def train_test_split(ratings):
@@ -148,7 +148,7 @@ def cosine_sim(a, b):
     
     cosine = float(np.dot(a, b.T) / np.linalg.norm(a) / np.linalg.norm(b))
     #print(cosine)
-    return round(cosine,5)
+    return cosine
 
 
 def make_predictions(movies, ratings_train, ratings_test):
@@ -197,7 +197,7 @@ def make_predictions(movies, ratings_train, ratings_test):
         else:
             weighted_avg=cos_sim/sum
         #print(weighted_avg)
-        predicted_rating.append(round(weighted_avg,1))
+        predicted_rating.append(weighted_avg)
 
     return np.array(predicted_rating)
 

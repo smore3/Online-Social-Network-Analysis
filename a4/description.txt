@@ -1,3 +1,24 @@
 Description of assignment:
 
+In this assignment, I have analyzed the tweets about the recently released movie "Dear Zindagi". I have collected all the tweets which mentioned the movie name and then clustered based on the mentions in their tweets. Later I classified them based on the negative and postive sentiments used in the tweets. 
+
+The aim of this analysis was to know the review of the movie and try to see what might have credited to the success or failure of the same.
+
+File 1: collect.py
+
+In this file, I have collected all the tweets using the Twitter API's search filter. Also I have made sure that the tweets are not repeated. The number of queries made are 10 in order to collect data quickly.
+
+File 2: cluster.py
+
+In this file, I have filtered out those tweets which has @ in it, then I stored the link between the user and the mentioned user in his/her tweet. Also, I made sure that the celebreties accounts starring in the movie are removed from these since we do not want the promotion tweets.
+After forming these links, I have created a graph and ran girvan_newman algorithm on it to create the communities.
+
+File 3: classify.py
+
+In this file, I have done the sentiment analysis of the tweets using AFINN dataset. the tweets are classified according to the scores and then classified accordingly.
+
+File 4: summary.txt
+
+In this file, I have summarized the output of above files and stored in summary.txt
+
 

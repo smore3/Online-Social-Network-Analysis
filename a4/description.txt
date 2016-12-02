@@ -13,6 +13,8 @@ File 2: cluster.py
 In this file, I have filtered out those tweets which has @ in it, then I stored the link between the user and the mentioned user in his/her tweet. Also, I made sure that the celebreties accounts starring in the movie are removed from these since we do not want the promotion tweets.
 After forming these links, I have created a graph and ran girvan_newman algorithm on it to create the communities.
 
+I wished to cluster it in a such a way that users who have mentioned the casts starring in the movie would be in single cluster, that way we would know that the actors/actresses play a major role in making the movie a success/fail
+
 File 3: classify.py
 
 In this file, I have done the sentiment analysis of the tweets using AFINN dataset. the tweets are classified according to the scores and then classified accordingly.
